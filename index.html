@@ -2797,68 +2797,85 @@
         }
 
         // Save product
-        async function saveProduct() {
-            const id = document.getElementById('productId').value;
-            const nome = document.getElementById('productName').value;
-            const preco = parseFloat(document.getElementById('productPrice').value);
-            const categoria = document.getElementById('productCategory').value;
-            const estoque = parseInt(document.getElementById('productStock').value) || 0;
-            const descricao = document.getElementById('productDescription').value;
+async function saveProduct() {
+    const id = document.getElementById('productId').value;
+    const nome = document.getElementById('productName').value;
+    const preco = parseFloat(document.getElementById('productPrice').value);
+    const categoria = document.getElementById('productCategory').value;
+    const estoque = parseInt(document.getElementById('productStock').value) || 0;
+    const descricao = document.getElementById('productDescription').value;
 
-            try {
-                // Process file uploads
-                const { mainImageUrl, additionalImageUrls } = await processProductFiles();
-                
-                const productData = {
-                    loja_id: currentLojaId,
-                    nome,
-                    preco,
-                    categoria,
-                    estoque,
-                    descricao
-                };
-                
-                // Add image URLs if uploaded
-                if (mainImageUrl) {
-                    productData.imagem_principal = mainImageUrl;
-                }
-                if (additionalImageUrls.length > 0) {
-                    productData.imagens_adicionais = additionalImageUrls;
-                }
+    // Validate required fields
+    if (!nome || !preco || !categoria) {
+        showToast('Por favor, preencha todos os campos obrigatórios (Nome, Preço, Categoria)');
+        return;
+    }
 
-                if (id) {
-                    // Update existing product
-                    const { error } = await supabase
-                        .from('produtos')
-                        .update(productData)
-                        .eq('id', id);
+    try {
+        let mainImageUrl = null;
+        let additionalImageUrls = [];
 
-                    if (error) throw error;
-                    showToast('Produto atualizado com sucesso!');
-                } else {
-                    // Create new product - require main image for new products
-                    if (!mainImageUrl) {
-                        throw new Error('Imagem principal é obrigatória para novos produtos');
-                    }
-                    
-                    const { error } = await supabase
-                        .from('produtos')
-                        .insert([productData]);
-
-                    if (error) throw error;
-                    showToast('Produto adicionado com sucesso!');
-                }
-
-                hideProductForm();
-                await loadProducts();
-                displayAdminProducts();
-                displayProducts();
-                populatePromotionProductSelect();
-            } catch (error) {
-                console.error('Error saving product:', error);
-                showToast('Erro ao salvar produto: ' + error.message);
-            }
+        // Try to process file uploads, but continue if it fails
+        try {
+            const uploadResult = await processProductFiles();
+            mainImageUrl = uploadResult.mainImageUrl;
+            additionalImageUrls = uploadResult.additionalImageUrls;
+        } catch (uploadError) {
+            console.warn('Upload failed, using default image:', uploadError);
+            // Use a default image if upload fails
+            mainImageUrl = 'images/default-product.jpg';
         }
+        
+        const productData = {
+            loja_id: currentLojaId,
+            nome,
+            preco,
+            categoria,
+            estoque,
+            descricao
+        };
+        
+        // Add image URLs
+        if (mainImageUrl) {
+            productData.imagem_principal = mainImageUrl;
+        } else {
+            // Use a default image if no image is provided
+            productData.imagem_principal = 'images/default-product.jpg';
+        }
+        
+        if (additionalImageUrls.length > 0) {
+            productData.imagens_adicionais = additionalImageUrls;
+        }
+
+        if (id) {
+            // Update existing product
+            const { error } = await supabase
+                .from('produtos')
+                .update(productData)
+                .eq('id', id);
+
+            if (error) throw error;
+            showToast('Produto atualizado com sucesso!');
+        } else {
+            // Create new product
+            const { error } = await supabase
+                .from('produtos')
+                .insert([productData]);
+
+            if (error) throw error;
+            showToast('Produto adicionado com sucesso!');
+        }
+
+        hideProductForm();
+        await loadProducts();
+        displayAdminProducts();
+        displayProducts();
+        populatePromotionProductSelect();
+    } catch (error) {
+        console.error('Error saving product:', error);
+        showToast('Erro ao salvar produto: ' + (error.message || 'Erro desconhecido'));
+    }
+}
 
         // Edit product
         function editProduct(id) {
