@@ -415,6 +415,62 @@
             background: #2d3748;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
+
+        /* Image preview styles */
+        .image-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .image-preview-item {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+        }
+
+        .image-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-preview-remove {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        /* Upload progress */
+        .upload-progress {
+            width: 100%;
+            height: 4px;
+            background-color: #e5e7eb;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .upload-progress-bar {
+            height: 100%;
+            background-color: #FF1493;
+            transition: width 0.3s ease;
+        }
     </style>
 </head>
 <body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen flex flex-col transition-colors duration-300">
@@ -536,18 +592,30 @@
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL da Imagem Principal *</label>
-                                <input type="url" id="productImage" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary text-base">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URLs das Imagens Adicionais (separadas por vírgula)</label>
-                                <input type="text" id="productImages" placeholder="url1,url2,url3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary text-base">
-                            </div>
-                            
-                            <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estoque</label>
                                 <input type="number" id="productStock" min="0" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Imagem Principal *</label>
+                                <input type="file" id="productMainImage" accept="image/*" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                                <div id="mainImagePreview" class="image-preview hidden">
+                                    <!-- Preview will be added here -->
+                                </div>
+                                <div id="mainImageProgress" class="upload-progress hidden">
+                                    <div id="mainImageProgressBar" class="upload-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Imagens Adicionais (máx. 5)</label>
+                                <input type="file" id="productAdditionalImages" accept="image/*" multiple class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                                <div id="additionalImagesPreview" class="image-preview">
+                                    <!-- Preview will be added here -->
+                                </div>
+                                <div id="additionalImagesProgress" class="upload-progress hidden">
+                                    <div id="additionalImagesProgressBar" class="upload-progress-bar" style="width: 0%"></div>
+                                </div>
                             </div>
                         </div>
                         
@@ -2094,6 +2162,7 @@
         let allProducts = [];
         let allPromotions = [];
         let isAdminLoggedIn = false;
+        let currentLojaId = 1; // Default to loja1
 
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize Supabase and load products
@@ -2114,6 +2183,7 @@
             initCheckoutModal();
             initContactForm();
             initAdmin();
+            initImageUploads();
         });
 
         // Initialize database tables
@@ -2121,36 +2191,208 @@
             try {
                 // Create products table if it doesn't exist
                 const { error: productsError } = await supabase
-                    .from('products')
+                    .from('produtos')
                     .select('*')
                     .limit(1);
 
                 if (productsError && productsError.code === '42P01') {
                     // Table doesn't exist, it needs to be created manually in Supabase
-                    console.log('Please create the products table in Supabase');
+                    console.log('Please create the produtos table in Supabase');
                 }
 
                 // Create promotions table if it doesn't exist
                 const { error: promotionsError } = await supabase
-                    .from('promotions')
+                    .from('promocoes')
                     .select('*')
                     .limit(1);
 
                 if (promotionsError && promotionsError.code === '42P01') {
                     // Table doesn't exist, it needs to be created manually in Supabase
-                    console.log('Please create the promotions table in Supabase');
+                    console.log('Please create the promocoes table in Supabase');
                 }
             } catch (error) {
                 console.error('Error initializing database:', error);
             }
         }
 
+        // Initialize image upload functionality
+        function initImageUploads() {
+            const mainImageInput = document.getElementById('productMainImage');
+            const additionalImagesInput = document.getElementById('productAdditionalImages');
+            
+            // Main image preview
+            if (mainImageInput) {
+                mainImageInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        previewMainImage(file);
+                    }
+                });
+            }
+            
+            // Additional images preview
+            if (additionalImagesInput) {
+                additionalImagesInput.addEventListener('change', function(e) {
+                    const files = Array.from(e.target.files);
+                    if (files.length > 0) {
+                        previewAdditionalImages(files);
+                    }
+                });
+            }
+        }
+
+        // Preview main image
+        function previewMainImage(file) {
+            const previewContainer = document.getElementById('mainImagePreview');
+            const progressContainer = document.getElementById('mainImageProgress');
+            const progressBar = document.getElementById('mainImageProgressBar');
+            
+            // Show preview
+            previewContainer.innerHTML = '';
+            const previewItem = createImagePreview(file, 0, true);
+            previewContainer.appendChild(previewItem);
+            previewContainer.classList.remove('hidden');
+            
+            // Simulate upload progress
+            progressContainer.classList.remove('hidden');
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                progressBar.style.width = `${progress}%`;
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        progressContainer.classList.add('hidden');
+                    }, 500);
+                }
+            }, 100);
+        }
+
+        // Preview additional images
+        function previewAdditionalImages(files) {
+            const previewContainer = document.getElementById('additionalImagesPreview');
+            const progressContainer = document.getElementById('additionalImagesProgress');
+            const progressBar = document.getElementById('additionalImagesProgressBar');
+            
+            // Clear existing previews
+            previewContainer.innerHTML = '';
+            
+            // Show previews
+            files.slice(0, 5).forEach((file, index) => {
+                const previewItem = createImagePreview(file, index, false);
+                previewContainer.appendChild(previewItem);
+            });
+            
+            // Simulate upload progress
+            progressContainer.classList.remove('hidden');
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                progressBar.style.width = `${progress}%`;
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        progressContainer.classList.add('hidden');
+                    }, 500);
+                }
+            }, 150);
+        }
+
+        // Create image preview item
+        function createImagePreview(file, index, isMain) {
+            const previewItem = document.createElement('div');
+            previewItem.className = 'image-preview-item';
+            
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            img.alt = `Preview ${index + 1}`;
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'image-preview-remove';
+            removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+            removeBtn.onclick = () => {
+                if (isMain) {
+                    document.getElementById('mainImagePreview').classList.add('hidden');
+                    document.getElementById('productMainImage').value = '';
+                } else {
+                    previewItem.remove();
+                    // Update file input would require more complex logic
+                }
+            };
+            
+            previewItem.appendChild(img);
+            previewItem.appendChild(removeBtn);
+            
+            return previewItem;
+        }
+
+        // Upload file to Supabase Storage
+        async function uploadFile(file, folder = 'produtos') {
+            try {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+                const filePath = `${folder}/${fileName}`;
+                
+                const { data, error } = await supabase.storage
+                    .from('imagens')
+                    .upload(filePath, file);
+                
+                if (error) throw error;
+                
+                // Get public URL
+                const { data: urlData } = supabase.storage
+                    .from('imagens')
+                    .getPublicUrl(filePath);
+                
+                return urlData.publicUrl;
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                throw error;
+            }
+        }
+
+        // Process form files for upload
+        async function processProductFiles() {
+            const mainImageFile = document.getElementById('productMainImage').files[0];
+            const additionalImageFiles = Array.from(document.getElementById('productAdditionalImages').files);
+            
+            const uploadPromises = [];
+            let mainImageUrl = null;
+            const additionalImageUrls = [];
+            
+            // Upload main image
+            if (mainImageFile) {
+                try {
+                    mainImageUrl = await uploadFile(mainImageFile);
+                } catch (error) {
+                    throw new Error('Erro ao fazer upload da imagem principal: ' + error.message);
+                }
+            }
+            
+            // Upload additional images
+            if (additionalImageFiles.length > 0) {
+                try {
+                    const uploadPromises = additionalImageFiles.slice(0, 5).map(file => uploadFile(file));
+                    const urls = await Promise.all(uploadPromises);
+                    additionalImageUrls.push(...urls);
+                } catch (error) {
+                    throw new Error('Erro ao fazer upload das imagens adicionais: ' + error.message);
+                }
+            }
+            
+            return {
+                mainImageUrl,
+                additionalImageUrls
+            };
+        }
+
         // Load products from Supabase
         async function loadProducts() {
             try {
                 const { data: products, error } = await supabase
-                    .from('products')
+                    .from('produtos')
                     .select('*')
+                    .eq('loja_id', currentLojaId)
                     .order('created_at', { ascending: false });
 
                 if (error) {
@@ -2171,22 +2413,22 @@
         // Load fallback products when Supabase is not available
         function loadFallbackProducts() {
             allProducts = [
-                {id: 1, name: "Vestido Midi Floral", price: 149.90, category: "Social", image: "images/vfloral2.jpg", images: ["images/vfloral.jpg", "images/vfloral2.jpg", "images/vfloral.jpg"], stock: 10, description: "Vestido midi com estampa floral elegante"},
-                {id: 2, name: "Blusa Lisa Transpassada", price: 89.90, category: "Social", image: "images/blusedo.jpg", images: ["images/blusedo.jpg", "images/blusedo.jpg", "images/blusedo.jpg"], stock: 15, description: "Blusa social lisa transpassada"},
-                {id: 3, name: "Conjunto Fitness Premium", price: 179.90, category: "Fitness", image: "images/c1.jpg", images: ["images/c1.jpg", "images/c2.jpg", "images/c3.jpg"], stock: 8, description: "Conjunto fitness de alta performance"},
-                {id: 4, name: "Calça Jeans Skinny", price: 119.90, category: "Casual", image: "images/skin.jpg", images: ["images/skin.jpg", "images/skin.jpg", "images/skin.jpg"], stock: 12, description: "Calça jeans skinny confortável"},
-                {id: 5, name: "Blazer Alfaiataria", price: 229.90, category: "Social", image: "images/b1.jpg", images: ["images/b1.jpg", "images/b2.jpg", "images/b3.jpg"], stock: 5, description: "Blazer alfaiataria elegante"},
-                {id: 6, name: "Camiseta Básica Premium", price: 69.90, category: "Casual", image: "images/r1.jpg", images: ["images/r1.jpg", "images/r2.jpg", "images/r3.jpg"], stock: 20, description: "Camiseta básica premium"},
-                {id: 7, name: "Short Fitness Dry-Fit", price: 79.90, category: "Fitness", image: "images/s1.jpg", images: ["images/s1.jpg", "images/s2.jpg", "images/s3.jpg"], stock: 18, description: "Short fitness dry-fit"},
-                {id: 8, name: "Saia Midi Plissada", price: 129.90, category: "Social", image: "images/saia.jpg", images: ["images/saia.jpg", "images/saia.jpg", "images/saia.jpg"], stock: 7, description: "Saia midi plissada elegante"}
+                {id: 1, nome: "Vestido Midi Floral", preco: 149.90, categoria: "Social", imagem_principal: "images/vfloral2.jpg", imagens_adicionais: ["images/vfloral.jpg", "images/vfloral2.jpg", "images/vfloral.jpg"], estoque: 10, descricao: "Vestido midi com estampa floral elegante"},
+                {id: 2, nome: "Blusa Lisa Transpassada", preco: 89.90, categoria: "Social", imagem_principal: "images/blusedo.jpg", imagens_adicionais: ["images/blusedo.jpg", "images/blusedo.jpg", "images/blusedo.jpg"], estoque: 15, descricao: "Blusa social lisa transpassada"},
+                {id: 3, nome: "Conjunto Fitness Premium", preco: 179.90, categoria: "Fitness", imagem_principal: "images/c1.jpg", imagens_adicionais: ["images/c1.jpg", "images/c2.jpg", "images/c3.jpg"], estoque: 8, descricao: "Conjunto fitness de alta performance"},
+                {id: 4, nome: "Calça Jeans Skinny", preco: 119.90, categoria: "Casual", imagem_principal: "images/skin.jpg", imagens_adicionais: ["images/skin.jpg", "images/skin.jpg", "images/skin.jpg"], estoque: 12, descricao: "Calça jeans skinny confortável"},
+                {id: 5, nome: "Blazer Alfaiataria", preco: 229.90, categoria: "Social", imagem_principal: "images/b1.jpg", imagens_adicionais: ["images/b1.jpg", "images/b2.jpg", "images/b3.jpg"], estoque: 5, descricao: "Blazer alfaiataria elegante"},
+                {id: 6, nome: "Camiseta Básica Premium", preco: 69.90, categoria: "Casual", imagem_principal: "images/r1.jpg", imagens_adicionais: ["images/r1.jpg", "images/r2.jpg", "images/r3.jpg"], estoque: 20, descricao: "Camiseta básica premium"},
+                {id: 7, nome: "Short Fitness Dry-Fit", preco: 79.90, categoria: "Fitness", imagem_principal: "images/s1.jpg", imagens_adicionais: ["images/s1.jpg", "images/s2.jpg", "images/s3.jpg"], estoque: 18, descricao: "Short fitness dry-fit"},
+                {id: 8, nome: "Saia Midi Plissada", preco: 129.90, categoria: "Social", imagem_principal: "images/saia.jpg", imagens_adicionais: ["images/saia.jpg", "images/saia.jpg", "images/saia.jpg"], estoque: 7, descricao: "Saia midi plissada elegante"}
             ];
 
             // Load fake promotions
             allPromotions = [
-                {id: 1, product_id: 1, discount: 20, start_date: '2025-01-01', end_date: '2025-12-31', active: true},
-                {id: 2, product_id: 2, discount: 15, start_date: '2025-01-01', end_date: '2025-12-31', active: true},
-                {id: 3, product_id: 3, discount: 30, start_date: '2025-01-01', end_date: '2025-12-31', active: true},
-                {id: 4, product_id: 4, discount: 25, start_date: '2025-01-01', end_date: '2025-12-31', active: true}
+                {id: 1, produto_id: 1, desconto: 20, data_inicio: '2025-01-01', data_fim: '2025-12-31', ativa: true},
+                {id: 2, produto_id: 2, desconto: 15, data_inicio: '2025-01-01', data_fim: '2025-12-31', ativa: true},
+                {id: 3, produto_id: 3, desconto: 30, data_inicio: '2025-01-01', data_fim: '2025-12-31', ativa: true},
+                {id: 4, produto_id: 4, desconto: 25, data_inicio: '2025-01-01', data_fim: '2025-12-31', ativa: true}
             ];
 
             displayProducts();
@@ -2197,20 +2439,20 @@
             // Flash Sale Products (products with promotions)
             const flashSaleContainer = document.getElementById('flashSaleProducts');
             const promotedProducts = allProducts.filter(product => {
-                return allPromotions.some(promo => promo.product_id === product.id && promo.active);
+                return allPromotions.some(promo => promo.produto_id === product.id && promo.ativa);
             });
 
             flashSaleContainer.innerHTML = promotedProducts.slice(0, 4).map(product => {
-                const promotion = allPromotions.find(promo => promo.product_id === product.id && promo.active);
-                const discountedPrice = product.price * (1 - promotion.discount / 100);
+                const promotion = allPromotions.find(promo => promo.produto_id === product.id && promo.ativa);
+                const discountedPrice = product.preco * (1 - promotion.desconto / 100);
                 
                 return createProductCard(product, {
-                    badge: `<span class="absolute top-3 left-3 bg-primary text-white text-xs font-bold px-2 py-1 rounded z-10">-${promotion.discount}%</span>`,
+                    badge: `<span class="absolute top-3 left-3 bg-primary text-white text-xs font-bold px-2 py-1 rounded z-10">-${promotion.desconto}%</span>`,
                     priceHtml: `
                         <div class="flex items-center gap-2 mb-3">
                             <span class="text-lg font-bold text-primary">R$ ${discountedPrice.toFixed(2).replace('.', ',')}</span>
-                            <span class="text-sm text-gray-500 dark:text-gray-400 line-through">R$ ${product.price.toFixed(2).replace('.', ',')}</span>
-                            <span class="text-xs text-green-600 font-medium">${promotion.discount}% OFF</span>
+                            <span class="text-sm text-gray-500 dark:text-gray-400 line-through">R$ ${product.preco.toFixed(2).replace('.', ',')}</span>
+                            <span class="text-xs text-green-600 font-medium">${promotion.desconto}% OFF</span>
                         </div>
                     `
                 });
@@ -2225,7 +2467,7 @@
                     badge: '<span class="absolute top-3 left-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded z-10">NOVO</span>',
                     priceHtml: `
                         <div class="flex items-center gap-2 mb-3">
-                            <span class="text-lg font-bold text-primary">R$ ${product.price.toFixed(2).replace('.', ',')}</span>
+                            <span class="text-lg font-bold text-primary">R$ ${product.preco.toFixed(2).replace('.', ',')}</span>
                         </div>
                     `
                 });
@@ -2235,19 +2477,21 @@
             initProductCards();
         }
 
-        // Create product card HTML
+        // Create product card HTML (adapted for new database structure)
         function createProductCard(product, options = {}) {
-            const { badge = '', priceHtml = `<div class="flex items-center gap-2 mb-3"><span class="text-lg font-bold text-primary">R$ ${product.price.toFixed(2).replace('.', ',')}</span></div>` } = options;
+            const { badge = '', priceHtml = `<div class="flex items-center gap-2 mb-3"><span class="text-lg font-bold text-primary">R$ ${product.preco.toFixed(2).replace('.', ',')}</span></div>` } = options;
+            
+            const productImages = product.imagens_adicionais || [product.imagem_principal, product.imagem_principal, product.imagem_principal];
             
             return `
-                <div class="product-card bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 relative" data-id="${product.id}" data-name="${product.name}" data-price="${product.price}" data-category="${product.category}" data-image="${product.image}" data-images='${JSON.stringify(product.images || [product.image, product.image, product.image])}'>
+                <div class="product-card bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 relative" data-id="${product.id}" data-name="${product.nome}" data-price="${product.preco}" data-category="${product.categoria}" data-image="${product.imagem_principal}" data-images='${JSON.stringify(productImages)}'>
                     ${badge}
                     <div class="relative overflow-hidden h-64">
-                        <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110">
+                        <img src="${product.imagem_principal}" alt="${product.nome}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110">
                     </div>
                     <div class="p-4">
-                        <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">${product.category}</div>
-                        <h3 class="font-semibold text-gray-800 dark:text-white mb-2 truncate">${product.name}</h3>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">${product.categoria}</div>
+                        <h3 class="font-semibold text-gray-800 dark:text-white mb-2 truncate">${product.nome}</h3>
                         ${priceHtml}
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
@@ -2352,8 +2596,9 @@
         async function loadPromotions() {
             try {
                 const { data: promotions, error } = await supabase
-                    .from('promotions')
+                    .from('promocoes')
                     .select('*')
+                    .eq('loja_id', currentLojaId)
                     .order('created_at', { ascending: false });
 
                 if (error) {
@@ -2385,10 +2630,10 @@
             tbody.innerHTML = allProducts.map(product => `
                 <tr>
                     <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${product.id}</td>
-                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${product.name}</td>
-                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${product.category}</td>
-                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">R$ ${product.price.toFixed(2)}</td>
-                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${product.stock || 0}</td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${product.nome}</td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${product.categoria}</td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">R$ ${product.preco.toFixed(2)}</td>
+                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${product.estoque || 0}</td>
                     <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">
                         <div class="flex gap-2">
                             <button onclick="editProduct(${product.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
@@ -2419,18 +2664,18 @@
             }
 
             tbody.innerHTML = allPromotions.map(promotion => {
-                const product = allProducts.find(p => p.id === promotion.product_id);
-                const productName = product ? product.name : 'Produto não encontrado';
+                const product = allProducts.find(p => p.id === promotion.produto_id);
+                const productName = product ? product.nome : 'Produto não encontrado';
                 
                 return `
                     <tr>
                         <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${promotion.id}</td>
                         <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${productName}</td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${promotion.discount}%</td>
-                        <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${promotion.start_date || 'N/A'} - ${promotion.end_date || 'N/A'}</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${promotion.desconto}%</td>
+                        <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">${promotion.data_inicio || 'N/A'} - ${promotion.data_fim || 'N/A'}</td>
                         <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">
-                            <span class="px-2 py-1 rounded text-xs ${promotion.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                ${promotion.active ? 'Ativa' : 'Inativa'}
+                            <span class="px-2 py-1 rounded text-xs ${promotion.ativa ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${promotion.ativa ? 'Ativa' : 'Inativa'}
                             </span>
                         </td>
                         <td class="border border-gray-300 dark:border-gray-600 px-4 py-2">
@@ -2515,58 +2760,89 @@
         // Fill product form with data
         function fillProductForm(product) {
             document.getElementById('productId').value = product.id;
-            document.getElementById('productName').value = product.name;
-            document.getElementById('productPrice').value = product.price;
-            document.getElementById('productCategory').value = product.category;
-            document.getElementById('productImage').value = product.image;
-            document.getElementById('productImages').value = product.images ? product.images.join(',') : '';
-            document.getElementById('productStock').value = product.stock || 0;
-            document.getElementById('productDescription').value = product.description || '';
+            document.getElementById('productName').value = product.nome;
+            document.getElementById('productPrice').value = product.preco;
+            document.getElementById('productCategory').value = product.categoria;
+            document.getElementById('productStock').value = product.estoque || 0;
+            document.getElementById('productDescription').value = product.descricao || '';
+            
+            // Show existing images (would need additional UI to display current images)
+            if (product.imagem_principal) {
+                // Create preview for existing main image
+                const mainPreview = document.getElementById('mainImagePreview');
+                mainPreview.innerHTML = `<img src="${product.imagem_principal}" class="w-20 h-20 object-cover rounded border" alt="Imagem atual">`;
+                mainPreview.classList.remove('hidden');
+            }
+            
+            if (product.imagens_adicionais && product.imagens_adicionais.length > 0) {
+                // Create preview for existing additional images
+                const additionalPreview = document.getElementById('additionalImagesPreview');
+                additionalPreview.innerHTML = '';
+                product.imagens_adicionais.forEach((url, index) => {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.className = 'w-20 h-20 object-cover rounded border';
+                    img.alt = `Imagem adicional ${index + 1}`;
+                    additionalPreview.appendChild(img);
+                });
+            }
         }
 
         // Clear product form
         function clearProductForm() {
             document.getElementById('productFormElement').reset();
             document.getElementById('productId').value = '';
+            document.getElementById('mainImagePreview').classList.add('hidden');
+            document.getElementById('additionalImagesPreview').innerHTML = '';
         }
 
         // Save product
         async function saveProduct() {
             const id = document.getElementById('productId').value;
-            const name = document.getElementById('productName').value;
-            const price = parseFloat(document.getElementById('productPrice').value);
-            const category = document.getElementById('productCategory').value;
-            const image = document.getElementById('productImage').value;
-            const imagesText = document.getElementById('productImages').value;
-            const stock = parseInt(document.getElementById('productStock').value) || 0;
-            const description = document.getElementById('productDescription').value;
-
-            const images = imagesText ? imagesText.split(',').map(url => url.trim()) : [image, image, image];
-
-            const productData = {
-                name,
-                price,
-                category,
-                image,
-                images,
-                stock,
-                description
-            };
+            const nome = document.getElementById('productName').value;
+            const preco = parseFloat(document.getElementById('productPrice').value);
+            const categoria = document.getElementById('productCategory').value;
+            const estoque = parseInt(document.getElementById('productStock').value) || 0;
+            const descricao = document.getElementById('productDescription').value;
 
             try {
+                // Process file uploads
+                const { mainImageUrl, additionalImageUrls } = await processProductFiles();
+                
+                const productData = {
+                    loja_id: currentLojaId,
+                    nome,
+                    preco,
+                    categoria,
+                    estoque,
+                    descricao
+                };
+                
+                // Add image URLs if uploaded
+                if (mainImageUrl) {
+                    productData.imagem_principal = mainImageUrl;
+                }
+                if (additionalImageUrls.length > 0) {
+                    productData.imagens_adicionais = additionalImageUrls;
+                }
+
                 if (id) {
                     // Update existing product
                     const { error } = await supabase
-                        .from('products')
+                        .from('produtos')
                         .update(productData)
                         .eq('id', id);
 
                     if (error) throw error;
                     showToast('Produto atualizado com sucesso!');
                 } else {
-                    // Create new product
+                    // Create new product - require main image for new products
+                    if (!mainImageUrl) {
+                        throw new Error('Imagem principal é obrigatória para novos produtos');
+                    }
+                    
                     const { error } = await supabase
-                        .from('products')
+                        .from('produtos')
                         .insert([productData]);
 
                     if (error) throw error;
@@ -2597,7 +2873,7 @@
             if (confirm('Tem certeza que deseja excluir este produto?')) {
                 try {
                     const { error } = await supabase
-                        .from('products')
+                        .from('produtos')
                         .delete()
                         .eq('id', id);
 
@@ -2640,11 +2916,11 @@
         // Fill promotion form with data
         function fillPromotionForm(promotion) {
             document.getElementById('promotionId').value = promotion.id;
-            document.getElementById('promotionProductId').value = promotion.product_id;
-            document.getElementById('promotionDiscount').value = promotion.discount;
-            document.getElementById('promotionStartDate').value = promotion.start_date;
-            document.getElementById('promotionEndDate').value = promotion.end_date;
-            document.getElementById('promotionActive').checked = promotion.active;
+            document.getElementById('promotionProductId').value = promotion.produto_id;
+            document.getElementById('promotionDiscount').value = promotion.desconto;
+            document.getElementById('promotionStartDate').value = promotion.data_inicio;
+            document.getElementById('promotionEndDate').value = promotion.data_fim;
+            document.getElementById('promotionActive').checked = promotion.ativa;
         }
 
         // Clear promotion form
@@ -2661,7 +2937,7 @@
             allProducts.forEach(product => {
                 const option = document.createElement('option');
                 option.value = product.id;
-                option.textContent = `${product.name} - ${product.category}`;
+                option.textContent = `${product.nome} - ${product.categoria}`;
                 select.appendChild(option);
             });
         }
@@ -2669,25 +2945,26 @@
         // Save promotion
         async function savePromotion() {
             const id = document.getElementById('promotionId').value;
-            const product_id = parseInt(document.getElementById('promotionProductId').value);
-            const discount = parseFloat(document.getElementById('promotionDiscount').value);
-            const start_date = document.getElementById('promotionStartDate').value;
-            const end_date = document.getElementById('promotionEndDate').value;
-            const active = document.getElementById('promotionActive').checked;
+            const produto_id = parseInt(document.getElementById('promotionProductId').value);
+            const desconto = parseFloat(document.getElementById('promotionDiscount').value);
+            const data_inicio = document.getElementById('promotionStartDate').value;
+            const data_fim = document.getElementById('promotionEndDate').value;
+            const ativa = document.getElementById('promotionActive').checked;
 
             const promotionData = {
-                product_id,
-                discount,
-                start_date,
-                end_date,
-                active
+                loja_id: currentLojaId,
+                produto_id,
+                desconto,
+                data_inicio,
+                data_fim,
+                ativa
             };
 
             try {
                 if (id) {
                     // Update existing promotion
                     const { error } = await supabase
-                        .from('promotions')
+                        .from('promocoes')
                         .update(promotionData)
                         .eq('id', id);
 
@@ -2696,7 +2973,7 @@
                 } else {
                     // Create new promotion
                     const { error } = await supabase
-                        .from('promotions')
+                        .from('promocoes')
                         .insert([promotionData]);
 
                     if (error) throw error;
@@ -2726,7 +3003,7 @@
             if (confirm('Tem certeza que deseja excluir esta promoção?')) {
                 try {
                     const { error } = await supabase
-                        .from('promotions')
+                        .from('promocoes')
                         .delete()
                         .eq('id', id);
 
@@ -2976,8 +3253,8 @@
                 
                 // Filter products based on search query
                 const results = allProducts.filter(product => {
-                    return product.name.toLowerCase().includes(query.toLowerCase()) || 
-                           product.category.toLowerCase().includes(query.toLowerCase());
+                    return product.nome.toLowerCase().includes(query.toLowerCase()) || 
+                           product.categoria.toLowerCase().includes(query.toLowerCase());
                 });
                 
                 if (results.length === 0) {
@@ -2987,9 +3264,6 @@
                     
                     // Display results
                     results.forEach(product => {
-                        const regex = new RegExp(query, 'gi');
-                        const highlightedName = product.name.replace(regex, match => `<span class="highlight">${match}</span>`);
-                        
                         searchResultsContainer.innerHTML += createProductCard(product);
                     });
                     
@@ -3050,7 +3324,7 @@
                 categoryProducts.innerHTML = '';
                 
                 const categoryItems = allProducts.filter(product => 
-                    product.category.toLowerCase() === category.toLowerCase()
+                    product.categoria.toLowerCase() === category.toLowerCase()
                 );
                 
                 if (categoryItems.length > 0) {
